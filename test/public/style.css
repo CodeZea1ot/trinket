@@ -1,0 +1,57 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #f4f4f4;
+  color: #333;
+}
+
+header {
+  background: #1a1a1a;
+  color: #fff;
+  padding: 2rem;
+  text-align: center;
+}
+
+header #logo {
+  width: 80px;
+  height: 80px;
+  display: block;
+  margin: 0 auto 1rem;
+}
+
+h1 {
+  margin: 0.5rem 0;
+}
+
+.subtitle {
+  font-size: 1rem;
+  font-style: italic;
+}
+
+main {
+  padding: 2rem;
+}
+
+section {
+  margin-bottom: 2rem;
+}
+
+button {
+  background: #ff9900;
+  border: none;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+button:hover {
+  background: #cc7a00;
+}
+
+footer {
+  background: #1a1a1a;
+  color: #fff;
+  padding: 1rem;
+  text-align: center;
+}

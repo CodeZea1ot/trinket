@@ -128,12 +128,10 @@ if $HTTPS; then
     fi
   fi
 
-  # Generate cert if missing
-  if [[ ! -f "$CERT" || ! -f "$KEY" ]]; then
-    echo "Generating trusted certificate with mkcert..."
-    mkdir -p "$CERT_DIR"
-    mkcert -cert-file "$CERT" -key-file "$KEY" localhost 127.0.0.1 ::1 "$HOST"
-  fi
+  # Always generate the certificate to include current host
+   echo "Generating trusted certificate with mkcert..."
+   mkdir -p "$CERT_DIR"
+   mkcert -cert-file "$CERT" -key-file "$KEY" localhost 127.0.0.1 ::1 "$HOST"
 
   # Warning about browser trust
   echo "Note: mkcert CA must be trusted in your browser (Chrome/Chromium should work; Firefox may need manual import of rootCA.pem)"
