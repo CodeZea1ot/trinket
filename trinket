@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+set -e
+
+# Defaults
+DIR="."
+PORT=8000
+HOST="localhost"
+HTTPS=false
+BROWSER=false
+
+CERT_DIR="$HOME/.local/share/mkcert"
+CERT="$CERT_DIR/localhost.pem"
+KEY="$CERT_DIR/localhost-key.pem"
+
+usage() {
+  cat <<EOF
+Usage: trinket [options] [directory] [port]
+
+Start a simple HTTP/HTTPS server using Python.
+
+Options:
+  -s, --https       Use HTTPS with mkcert (localhost only by default)
+  -b, --browser     Automatically open browser
+  -H, --host        Host to bind to (default: localhost)
+  -h, --help        Show this help message
+
+Arguments:
+  directory         Directory to serve (default: current directory)
+  port              Port number (default: 8000 HTTP, 8443 HTTPS)
+
+Examples:
+  trinket
+  trinket public
+  trinket public 3000
+  trinket -s
+  trinket --https
+  trinket -s public 8443
+  trinket public -b
+  trinket -H 0.0.0.0 -s
+EOF
+}
+
+# --- Parse options ---
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -s|--https)
+      HTTPS=true
+      shift
+      ;;
+    -b|--browser)
+      BROWSER=true
+      shift
+      ;;
+    -H|--host)
+      HOST="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --) # end of options
+      shift
+      break
+      ;;
+    -*)
+      echo "Unknown option: $1"
+      usage
+      exit 1
+      ;;
+    *)  # positional argument
+      POSITIONAL+=("$1")
+      shift
+      ;;
+  esac
+done
+
+# Restore positional arguments
+set -- "${POSITIONAL[@]}"
+
+# --- Read positional arguments ---
+[[ -n "$1" ]] && DIR="$1"
+[[ -n "$2" ]] && PORT="$2"
+
+# Default HTTPS port
+if $HTTPS && [[ "$PORT" == 8000 ]]; then
+  PORT=8443
+fi
+
+# --- Validate directory ---
+if [[ ! -d "$DIR" ]]; then
+  echo "Error: directory '$DIR' does not exist"
+  exit 1
+fi
+
+# --- Check port availability & fallback ---
+ORIGINAL_PORT=$PORT
+while command -v lsof >/dev/null 2>&1 && lsof -i ":$PORT" >/dev/null 2>&1; do
+  PORT=$((PORT + 1))
+done
+if [[ "$PORT" != "$ORIGINAL_PORT" ]]; then
+  echo "Requested port $ORIGINAL_PORT is in use. Using alternative port $PORT."
+fi
+
+# --- HTTPS setup ---
+if $HTTPS; then
+  # Check mkcert
+  if ! command -v mkcert >/dev/null 2>&1; then
+    echo "Error: mkcert is not installed"
+    echo "Install: sudo apt install mkcert  or  brew install mkcert"
+    exit 1
+  fi
+
+  # Automatically install mkcert local CA if needed
+  echo "Installing mkcert local CA if needed..."
+  mkcert -install >/dev/null 2>&1 || true
+
+  # Auto-detect LAN IP if HOST is 0.0.0.0
+  if [[ "$HOST" == "0.0.0.0" ]]; then
+    # pick the first non-loopback IPv4
+    LAN_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++){if($i=="src"){print $(i+1); exit}}}')
+    if [[ -n "$LAN_IP" ]]; then
+      HOST="$LAN_IP"
+    else
+      echo "Warning: Could not detect LAN IP. Defaulting to localhost."
+      HOST="localhost"
+    fi
+  fi
+
+  # Generate cert if missing
+  if [[ ! -f "$CERT" || ! -f "$KEY" ]]; then
+    echo "Generating trusted certificate with mkcert..."
+    mkdir -p "$CERT_DIR"
+    mkcert -cert-file "$CERT" -key-file "$KEY" localhost 127.0.0.1 ::1 "$HOST"
+  fi
+
+  # Warning about browser trust
+  echo "Note: mkcert CA must be trusted in your browser (Chrome/Chromium should work; Firefox may need manual import of rootCA.pem)"
+fi
+
+# --- Calculate URL once ---
+URL="$([[ $HTTPS == true ]] && echo https://$HOST:$PORT || echo http://$HOST:$PORT)"
+
+# --- Print info ---
+echo "Serving $([[ $HTTPS == true ]] && echo HTTPS || echo HTTP) '$DIR' at $URL"
+
+cd "$DIR"
+
+# --- Optional browser open ---
+if $BROWSER && command -v xdg-open >/dev/null 2>&1; then
+  xdg-open "$URL" >/dev/null 2>&1 &
+fi
+
+# --- Start server ---
+if $HTTPS; then
+  python3 - <<EOF
+import http.server, ssl, socketserver
+
+handler = http.server.SimpleHTTPRequestHandler
+httpd = socketserver.TCPServer(("$HOST", $PORT), handler)
+
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+context.load_cert_chain("$CERT", "$KEY")
+httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+try:
+    httpd.serve_forever()
+except KeyboardInterrupt:
+    print("\nServer stopped by user.")
+finally:
+    httpd.server_close()
+EOF
+else
+  python3 -m http.server "$PORT" --bind "$HOST"
+fi
+
