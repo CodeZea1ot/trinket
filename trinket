@@ -257,7 +257,10 @@ def watch_files(root):
             print("[watch] Reloading clients...")
         time.sleep(0.5)
 
-httpd = socketserver.ThreadingTCPServer((HOST, PORT), Handler)
+class ReusableTCPServer(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+
+httpd = ReusableTCPServer((HOST, PORT), Handler)
 
 if HTTPS:
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -268,5 +271,10 @@ if WATCH:
     threading.Thread(target=watch_files, args=(os.getcwd(),), daemon=True).start()
 
 print(f"Serving on {'https' if HTTPS else 'http'}://{HOST}:{PORT}")
-httpd.serve_forever()
+try:
+    httpd.serve_forever()
+except KeyboardInterrupt:
+    print("\nShutting down server...")
+    httpd.shutdown()
+    httpd.server_close()
 EOF
