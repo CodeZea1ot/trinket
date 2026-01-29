@@ -1,10 +1,11 @@
 # Trinket
 
-**Trinket** — a lightweight Python-based HTTP/HTTPS server designed for modern web development. It supports local HTTPS via mkcert, automatic port fallback, LAN access, and optional browser launching — perfect for developers who want a simple, reliable, and secure local server.
+**Trinket** — a lightweight Python-based HTTP/HTTPS server designed for modern web development. It supports local HTTPS via mkcert, automatic port fallback, LAN access, auto-reload on changes, and optional browser launching — perfect for developers who want a simple, reliable, and secure local server.
 
 ## Features
 
 - Serve a directory over **HTTP** or **HTTPS**.
+- Wath files and auto-reload browser
 - Auto-generate trusted certificates for local development using `mkcert`.
 - Accessible by other devices on your local network with automatic IP detection.
 - Automatically falls back to the next available port if the requested one is in use.
@@ -80,6 +81,7 @@ Examples:
   trinket -s public 8443
   trinket public -b
   trinket -H 0.0.0.0 -s
+  trinket public --watch
 ```
 
 ### Options
@@ -89,6 +91,7 @@ Examples:
 | `-s`, `--https`   | Serve with HTTPS (localhost only by default) |
 | `-b`, `--browser` | Automatically open browser                   |
 | `-H`, `--host`    | Host to bind to (default: localhost)         |
+| `-w`, `--watch`   | Watch files and auto-reload browser          |
 | `-h`, `--help`    | Show help message                            |
 
 ### Arguments
@@ -105,7 +108,7 @@ Examples:
 - The script automatically increments the port if the requested one is in use.
 - The server runs on Python’s built-in `http.server` and is suitable for development purposes only — **not for production use**.
 - Other devices on your local network can access the server if you use `-H 0.0.0.0`.
-  - Just open `http://{HOST_LAN_IP_HERE}:{PORT}` on another LAN  device.
+  - Just open `http://{HOST_LAN_IP_HERE}:{PORT}` on another LAN device.
   - See [HTTPS Notes](#http-notes) below if you what to use HTTPS with LAN devices.
 - Automatic browser launch currently supports Linux (`xdg-open`).
 
@@ -115,7 +118,7 @@ Examples:
 - Browsers must trust mkcert’s local CA:
   - **Chrome/Chromium:** works automatically. If not, close all browser instances and reopen.
   - **Firefox:** may require manual import of `rootCA.pem`.
-- You  never have to manually run `mkcert -install` on the host machine.
+- You never have to manually run `mkcert -install` on the host machine.
 - Other devices on your local network must trust the same CA to avoid certificate warnings.
 
 ## License
