@@ -7,6 +7,7 @@ PORT=8000
 HOST="localhost"
 HTTPS=false
 BROWSER=false
+WATCH=false
 
 CERT_DIR="$HOME/.local/share/mkcert"
 CERT="$CERT_DIR/localhost.pem"
@@ -22,6 +23,7 @@ Options:
   -s, --https       Use HTTPS with mkcert (localhost only by default)
   -b, --browser     Automatically open browser
   -H, --host        Host to bind to (default: localhost)
+  -w, --watch       Watch files and auto-reload browser
   -h, --help        Show this help message
 
 Arguments:
@@ -37,6 +39,7 @@ Examples:
   trinket -s public 8443
   trinket public -b
   trinket -H 0.0.0.0 -s
+  trinket public --watch
 EOF
 }
 
@@ -55,6 +58,10 @@ while [[ $# -gt 0 ]]; do
     -H|--host)
       HOST="$2"
       shift 2
+      ;;
+    -w|--watch)
+      WATCH=true
+      shift
       ;;
     -h|--help)
       usage
@@ -76,99 +83,190 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Restore positional arguments
 set -- "${POSITIONAL[@]}"
 
-# --- Read positional arguments ---
 [[ -n "$1" ]] && DIR="$1"
 [[ -n "$2" ]] && PORT="$2"
 
-# Default HTTPS port
 if $HTTPS && [[ "$PORT" == 8000 ]]; then
   PORT=8443
 fi
 
-# --- Validate directory ---
 if [[ ! -d "$DIR" ]]; then
   echo "Error: directory '$DIR' does not exist"
   exit 1
 fi
 
-# --- Check port availability & fallback ---
 ORIGINAL_PORT=$PORT
 while command -v lsof >/dev/null 2>&1 && lsof -i ":$PORT" >/dev/null 2>&1; do
   PORT=$((PORT + 1))
 done
+
 if [[ "$PORT" != "$ORIGINAL_PORT" ]]; then
   echo "Requested port $ORIGINAL_PORT is in use. Using alternative port $PORT."
 fi
 
-# --- HTTPS setup ---
 if $HTTPS; then
-  # Check mkcert
   if ! command -v mkcert >/dev/null 2>&1; then
     echo "Error: mkcert is not installed"
-    echo "Install: sudo apt install mkcert  or  brew install mkcert"
     exit 1
   fi
 
-  # Automatically install mkcert local CA if needed
-  echo "Installing mkcert local CA if needed..."
   mkcert -install >/dev/null 2>&1 || true
 
-  # Auto-detect LAN IP if HOST is 0.0.0.0
   if [[ "$HOST" == "0.0.0.0" ]]; then
-    # pick the first non-loopback IPv4
     LAN_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++){if($i=="src"){print $(i+1); exit}}}')
-    if [[ -n "$LAN_IP" ]]; then
-      HOST="$LAN_IP"
-    else
-      echo "Warning: Could not detect LAN IP. Defaulting to localhost."
-      HOST="localhost"
-    fi
+    HOST="${LAN_IP:-localhost}"
   fi
 
-  # Always generate the certificate to include current host
-   echo "Generating trusted certificate with mkcert..."
-   mkdir -p "$CERT_DIR"
-   mkcert -cert-file "$CERT" -key-file "$KEY" localhost 127.0.0.1 ::1 "$HOST"
-
-  # Warning about browser trust
-  echo "Note: mkcert CA must be trusted in your browser (Chrome/Chromium should work; Firefox may need manual import of rootCA.pem)"
+  mkdir -p "$CERT_DIR"
+  mkcert -cert-file "$CERT" -key-file "$KEY" localhost 127.0.0.1 ::1 "$HOST"
 fi
 
-# --- Calculate URL once ---
-URL="$([[ $HTTPS == true ]] && echo https://$HOST:$PORT || echo http://$HOST:$PORT)"
+export TRINKET_HOST="$HOST"
+export TRINKET_PORT="$PORT"
+export TRINKET_WATCH="$WATCH"
+export TRINKET_HTTPS="$HTTPS"
+export TRINKET_CERT="$CERT"
+export TRINKET_KEY="$KEY"
 
-# --- Print info ---
+URL="$([[ $HTTPS == true ]] && echo https://$HOST:$PORT || echo http://$HOST:$PORT)"
 echo "Serving $([[ $HTTPS == true ]] && echo HTTPS || echo HTTP) '$DIR' at $URL"
 
 cd "$DIR"
 
-# --- Optional browser open ---
 if $BROWSER && command -v xdg-open >/dev/null 2>&1; then
   xdg-open "$URL" >/dev/null 2>&1 &
 fi
 
-# --- Start server ---
-if $HTTPS; then
-  python3 - <<EOF
-import http.server, ssl, socketserver
+python3 - <<'EOF'
+import os
+import http.server
+import socketserver
+import ssl
+import threading
+import time
+import io
+import re
 
-handler = http.server.SimpleHTTPRequestHandler
-httpd = socketserver.TCPServer(("$HOST", $PORT), handler)
+HOST = os.environ["TRINKET_HOST"]
+PORT = int(os.environ["TRINKET_PORT"])
+WATCH = os.environ["TRINKET_WATCH"] == "true"
+HTTPS = os.environ["TRINKET_HTTPS"] == "true"
+CERT = os.environ["TRINKET_CERT"]
+KEY = os.environ["TRINKET_KEY"]
 
-context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-context.load_cert_chain("$CERT", "$KEY")
-httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
-try:
-    httpd.serve_forever()
-except KeyboardInterrupt:
-    print("\nServer stopped by user.")
-finally:
-    httpd.server_close()
+reload_pending = False
+
+RELOAD_SCRIPT = b"""
+<script>
+(() => {
+  async function poll() {
+    try {
+      const res = await fetch('/__reload');
+      if (res.status === 205) location.reload();
+    } catch (e) {}
+    setTimeout(poll, 500);
+  }
+  poll();
+})();
+</script>
+"""
+
+CSS_RE = re.compile(rb'href=["\']([^"\']+\\.css)["\']')
+
+def bust_css(html: bytes) -> bytes:
+    ts = str(int(time.time())).encode()
+    def repl(m):
+        href = m.group(1)
+        sep = b"&" if b"?" in href else b"?"
+        return b'href="' + href + sep + b'v=' + ts + b'"'
+    return CSS_RE.sub(repl, html)
+
+SCRIPT_RE = re.compile(rb'src=["\']([^"\']+\\.js)["\']')
+
+def bust_js(html: bytes) -> bytes:
+    ts = str(int(time.time())).encode()
+    def repl(m):
+        src = m.group(1)
+        sep = b"&" if b"?" in src else b"?"
+        return b'src="' + src + sep + b'v=' + ts + b'"'
+    return SCRIPT_RE.sub(repl, html)
+
+
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def end_headers(self):
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
+    def do_GET(self):
+        global reload_pending
+        if self.path == "/__reload":
+            if WATCH and reload_pending:
+                self.send_response(205)
+                self.end_headers()
+                reload_pending = False
+            else:
+                self.send_response(204)
+                self.end_headers()
+            return
+
+        if self.path == "/":
+            self.path = "/index.html"
+
+        super().do_GET()
+
+    def send_head(self):
+        path = self.translate_path(self.path)
+        if path.endswith(".html") and os.path.exists(path):
+            with open(path, "rb") as f:
+                content = f.read()
+
+            if WATCH:
+                content = bust_css(content)
+                content = bust_js(content)
+                content = content.replace(b"</body>", RELOAD_SCRIPT + b"</body>")
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            return io.BytesIO(content)
+
+        return super().send_head()
+
+def watch_files(root):
+    global reload_pending
+    print("[watch] Watch mode enabled")
+    mtimes = {}
+    while True:
+        changed = False
+        for dirpath, _, files in os.walk(root):
+            for f in files:
+                path = os.path.join(dirpath, f)
+                try:
+                    m = os.path.getmtime(path)
+                except FileNotFoundError:
+                    continue
+                if mtimes.get(path) != m:
+                    mtimes[path] = m
+                    changed = True
+                    print(f"[watch] File changed: {f}")
+        if changed:
+            reload_pending = True
+            print("[watch] Reloading clients...")
+        time.sleep(0.5)
+
+httpd = socketserver.ThreadingTCPServer((HOST, PORT), Handler)
+
+if HTTPS:
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.load_cert_chain(CERT, KEY)
+    httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
+
+if WATCH:
+    threading.Thread(target=watch_files, args=(os.getcwd(),), daemon=True).start()
+
+print(f"Serving on {'https' if HTTPS else 'http'}://{HOST}:{PORT}")
+httpd.serve_forever()
 EOF
-else
-  python3 -m http.server "$PORT" --bind "$HOST"
-fi
-
