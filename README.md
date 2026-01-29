@@ -35,10 +35,10 @@ mkcert -install               # install local CA
 
 ### Downloading a Release
 
-Simply head over to [Releases](https://github.com/CodeZea1ot/trinket/releases), download the `trinket.sh` asset for your desired version, and then put it in your `$PATH`. I recommend `/usr/local/bin`.
+Simply head over to [Releases](https://github.com/CodeZea1ot/trinket/releases), download the `trinket` asset for your desired version, and then put it in your `$PATH`. I recommend `/usr/local/bin`.
 
 ```bash
-sudo cp /path/to/trinket.sh /usr/local/bin/trinket
+sudo cp /path/to/trinket /usr/local/bin/trinket
 ```
 
 ### Cloning the Repo
@@ -52,7 +52,7 @@ It also allows you to swap the version of `trinket` you are using by changing gi
 ```bash
 git clone git@github.com:CodeZea1ot/trinket.git
 cd trinket
-sudo ln -s $(pwd)/trinket.sh /usr/local/bin/trinket
+sudo ln -s $(pwd)/trinket /usr/local/bin/trinket
 ```
 
 ---
