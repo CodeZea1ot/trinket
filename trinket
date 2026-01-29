@@ -217,6 +217,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def send_head(self):
+        # Normalize directory requests to index.html
+        if self.path.endswith("/"):
+            self.path = self.path + "index.html"
+            
         path = self.translate_path(self.path)
         if path.endswith(".html") and os.path.exists(path):
             with open(path, "rb") as f:
