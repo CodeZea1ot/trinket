@@ -30,7 +30,6 @@ For HTTPS support, you need to install [mkcert](https://github.com/FiloSottile/m
 
 ```sh
 sudo apt install mkcert       # Ubuntu/Debian/Pop!_OS
-mkcert -install               # install local CA
 ```
 
 ### Downloading a Release
@@ -72,18 +71,6 @@ sudo rm /usr/local/bin/trinket
 ```sh
 Usage: trinket [options] [directory] [port]
 
-Start a simple HTTP/HTTPS server using Python.
-
-Options:
-  -s, --https       Use HTTPS with mkcert (localhost only by default)
-  -b, --browser     Automatically open browser
-  -H, --host        Host to bind to (default: localhost)
-  -h, --help        Show this help message
-
-Arguments:
-  directory         Directory to serve (default: current directory)
-  port              Port number (default: 8000 HTTP, 8443 HTTPS)
-
 Examples:
   trinket
   trinket public
@@ -115,21 +102,28 @@ Examples:
 
 ## Notes
 
-- When using HTTPS, mkcert will generate a certificate including the host IP. Browsers must trust mkcert’s local CA:
-  - **Chrome/Chromium:** works automatically after `mkcert -install`. If not, close all instances and reopen.
-  - **Firefox:** may require manual import of `rootCA.pem`.
 - The script automatically increments the port if the requested one is in use.
 - The server runs on Python’s built-in `http.server` and is suitable for development purposes only — **not for production use**.
 - Other devices on your local network can access the server if you use `-H 0.0.0.0`.
-  - When using `-H 0.0.0.0`, Trinket will attempt to generate a certificate including your LAN IP. Browsers must trust mkcert’s local CA for this IP as well.
+  - Just open `http://{HOST_LAN_IP_HERE}:{PORT}` on another LAN  device.
+  - See [HTTPS Notes](#http-notes) below if you what to use HTTPS with LAN devices.
 - Automatic browser launch currently supports Linux (`xdg-open`).
+
+### HTTPS Notes
+
+- When using HTTPS, trinket will always generate a new certificate using `mkcert` to ensure the latest host IP is used.
+- Browsers must trust mkcert’s local CA:
+  - **Chrome/Chromium:** works automatically. If not, close all browser instances and reopen.
+  - **Firefox:** may require manual import of `rootCA.pem`.
+- You  never have to manually run `mkcert -install` on the host machine.
+- Other devices on your local network must trust the same CA to avoid certificate warnings.
 
 ## License
 
 **Trinket** is released under the [MIT License](LICENSE).
 
-**Dependencies:**
+**External Dependencies:**
 
-- [`mkcert`](https://github.com/FiloSottile/mkcert) is included optionally for HTTPS and is licensed under the BSD 3-Clause License.
+- [`mkcert`](https://github.com/FiloSottile/mkcert) is required for HTTPS and is licensed under the BSD 3-Clause License.
 
 Use Trinket responsibly — it is intended for local development and testing purposes only, not for production deployments.
