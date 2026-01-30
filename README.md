@@ -1,6 +1,10 @@
 # Trinket
 
-**Trinket** — a lightweight Python-based HTTP/HTTPS server designed for modern web development. It supports local HTTPS via mkcert, automatic port fallback, LAN access, auto-reload on changes, and optional browser launching — perfect for developers who want a simple, reliable, and secure local server.
+A tool for serving local sites at full sail.
+
+![Logo](./assets/images/trinket.png)
+
+**Trinket** is a lightweight Python-based HTTP/HTTPS server designed for modern web development. It supports local HTTPS via mkcert, automatic port fallback, LAN access, auto-reload on changes, and optional browser launching — perfect for developers who want a simple, reliable, and secure local server.
 
 ## Features
 
