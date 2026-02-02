@@ -142,7 +142,7 @@ Examples:
 
 **External Dependencies:**
 
-- [`mkcert`](https://github.com/FiloSottile/mkcert) is required for HTTPS and is licensed under the BSD 3-Clause License.
+- [`mkcert`](https://github.com/FiloSottile/mkcert) is required for HTTPS and is licensed under the [BSD 3-Clause license](https://github.com/FiloSottile/mkcert?tab=BSD-3-Clause-1-ov-file#readme).
 - [`qrterminal`](https://github.com/mdp/qrterminal) is required for QR code generation and is licensed under the [MIT license](https://github.com/mdp/qrterminal?tab=MIT-1-ov-file#readme) 
 - [`qrencode`](https://github.com/fukuchi/libqrencode) acts as a fall back when `qrterminal` is not found and is licensed under the [LGPL-2.1 license](https://github.com/fukuchi/libqrencode#LGPL-2.1-1-ov-file)
 
