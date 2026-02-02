@@ -14,6 +14,7 @@ A tool for serving local sites at full sail.
 - Accessible by other devices on your local network with automatic IP detection.
 - Automatically falls back to the next available port if the requested one is in use.
 - Optional **automatic browser launch**.
+- Optional **QR code** output for site address
 - Minimal dependencies: Bash, Python 3, optionally mkcert for HTTPS.
 
 ---
@@ -31,11 +32,20 @@ python3 --version
 
 #### Optional
 
-For HTTPS support, you need to install [mkcert](https://github.com/FiloSottile/mkcert):
+##### HTTPS Support
+
+For HTTPS support, you need to install [`mkcert`](https://github.com/FiloSottile/mkcert):
 
 ```sh
 sudo apt install mkcert       # Ubuntu/Debian/Pop!_OS
 ```
+##### QR Code Support
+
+If you would like to generate a QR code for the site address when starting a server, you will need at least one of the following installed and in your `$PATH`:
+- [`qrterminal`](https://github.com/mdp/qrterminal)
+- [`libqrencode`](https://github.com/fukuchi/libqrencode)
+
+**Trinket** defaults to using `qrterminal` and will fall back to `qrencode` if needed.
 
 ### Downloading a Release
 
@@ -85,7 +95,7 @@ Examples:
   trinket -s public 8443
   trinket public -b
   trinket -H 0.0.0.0 -s
-  trinket public --watch
+  trinket public --watch -Q
 ```
 
 ### Options
@@ -95,7 +105,8 @@ Examples:
 | `-s`, `--https`   | Serve with HTTPS (localhost only by default) |
 | `-b`, `--browser` | Automatically open browser                   |
 | `-H`, `--host`    | Host to bind to (default: localhost)         |
-| `-w`, `--watch`   | Watch files and auto-reload browser          |
+| `-w`, `--watch`   | Watch files and auto-reload browser          |    
+| `-Q`, `--qrcode`  | Render site address as a QR code             |
 | `-h`, `--help`    | Show help message                            |
 
 ### Arguments
@@ -132,5 +143,7 @@ Examples:
 **External Dependencies:**
 
 - [`mkcert`](https://github.com/FiloSottile/mkcert) is required for HTTPS and is licensed under the BSD 3-Clause License.
+- [`qrterminal`](https://github.com/mdp/qrterminal) is required for QR code generation and is licensed under the [MIT license](https://github.com/mdp/qrterminal?tab=MIT-1-ov-file#readme) 
+- [`qrencode`](https://github.com/fukuchi/libqrencode) acts as a fall back when `qrterminal` is not found and is licensed under the [LGPL-2.1 license](https://github.com/fukuchi/libqrencode#LGPL-2.1-1-ov-file)
 
 Use Trinket responsibly — it is intended for local development and testing purposes only, not for production deployments.
