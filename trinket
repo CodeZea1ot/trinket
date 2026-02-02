@@ -8,6 +8,7 @@ HOST="localhost"
 HTTPS=false
 BROWSER=false
 WATCH=false
+QRCODE=false
 
 CERT_DIR="$HOME/.local/share/mkcert"
 CERT="$CERT_DIR/localhost.pem"
@@ -24,6 +25,7 @@ Options:
   -b, --browser     Automatically open browser
   -H, --host        Host to bind to (default: localhost)
   -w, --watch       Watch files and auto-reload browser
+  -Q, --qrcode      Render site address as a QR code
   -h, --help        Show this help message
 
 Arguments:
@@ -61,6 +63,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -w|--watch)
       WATCH=true
+      shift
+      ;;
+    -Q|--qrcode)
+      QRCODE=true
       shift
       ;;
     -h|--help)
@@ -108,7 +114,7 @@ fi
 
 if $HTTPS; then
   if ! command -v mkcert >/dev/null 2>&1; then
-    echo "Error: mkcert is not installed"
+    echo "Error: mkcert is not installed" >&2
     exit 1
   fi
 
@@ -138,6 +144,17 @@ cd "$DIR"
 if $BROWSER && command -v xdg-open >/dev/null 2>&1; then
   xdg-open "$URL" >/dev/null 2>&1 &
 fi
+
+if [[ $QRCODE == true ]]; then
+  if command -v qrterminal >/dev/null 2>&1; then
+    echo "$URL" | qrterminal
+  elif command -v qrencode >/dev/null 2>&1; then
+      qrencode -t ANSIUTF8 "$URL"
+  else
+    echo "Error: dependency not found for QR code generation; skipping QR code output." >&2
+  fi
+fi
+
 
 python3 - <<'EOF'
 import os
